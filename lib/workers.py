@@ -9,6 +9,8 @@ from p_tqdm import p_map
 from math import radians, cos, sin, asin, sqrt
 import matplotlib.pyplot as plt
 import warnings
+from geopandas import GeoDataFrame
+from shapely.geometry import Point
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 
@@ -130,5 +132,38 @@ def long_tail_distr(data=None, col_name=None, x_lb=None, y_lb=None, bin_num=None
     plt.axvline(x=data[col_name].median(), color='r', linestyle='dashed', linewidth=1)
     ax.set_xscale('log')
     ax.set_yscale('log')
+    ax.set_xlabel(x_lb)
+    ax.set_ylabel(y_lb)
+
+
+def df2gdf_point(df, x_field, y_field, crs=4326, drop=True):
+    """
+    Convert two columns of GPS coordinates into POINT geo dataframe
+    :param drop: boolean, if true, x and y columns will be dropped
+    :param df: dataframe, containing X and Y
+    :param x_field: string, col name of X, lng
+    :param y_field: string, col name of Y, lat
+    :param crs: int, epsg code
+    :return: a geo dataframe with geometry of POINT
+    """
+    geometry = [Point(xy) for xy in zip(df[x_field], df[y_field])]
+    if drop:
+        gdf = GeoDataFrame(df.drop(columns=[x_field, y_field]), geometry=geometry)
+    else:
+        gdf = GeoDataFrame(df, crs=crs, geometry=geometry)
+    gdf.set_crs(epsg=crs, inplace=True)
+    return gdf
+
+
+def distr(data=None, col_name=None, x_lb=None, y_lb=None, bin_num=None):
+    print(min(data[col_name]), max(data[col_name]))
+    lower, upper = min(data[col_name]), max(data[col_name])
+    bins = np.linspace(lower, upper, bin_num)
+    hist, edges = np.histogram(data[col_name], bins=bins, density=True)
+    x = (edges[1:] + edges[:-1]) / 2.
+    xx, yy = zip(*[(i, j) for (i, j) in zip(x, hist) if j > 0])
+    fig, ax = plt.subplots()
+    ax.plot(xx, yy, marker='.')
+    plt.axvline(x=data[col_name].median(), color='r', linestyle='dashed', linewidth=1)
     ax.set_xlabel(x_lb)
     ax.set_ylabel(y_lb)
