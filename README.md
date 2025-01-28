@@ -24,7 +24,5 @@ order of running the script.
 This is because some later analysis may depend on earlier steps.
 
 - `src/data_etl/` do data extraction and preprocessing.
-- `src/feature_eng/` compute metrics of mobility and segregation.
 - `src/data_exp/` explore the data, produce descriptive statistics, and conduct statistical analysis.
-- `src/simulations/` include the two counterfactual simulations, random mixing scenario, and group exposure analysis.
 - `src/visualization/` produce figures inserted in the manuscript.
