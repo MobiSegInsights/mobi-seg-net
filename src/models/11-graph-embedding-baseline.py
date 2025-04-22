@@ -42,9 +42,9 @@ def results_save(graph_embedding=None, city_graph=None):
 
 
 if __name__ == '__main__':
-    cdtg = graph_workers.CityDataToGraph(data_path='dbs/cities/stockholm.parquet',
+    cdtg = graph_workers.CityDataToGraph(data_path='dbs/cities/stockholm_w.parquet',
                                          data_space_group='dbs/cities/stockholm_space_group.csv')
-    cdtg.edges_processing()
+    cdtg.edges_processing(basic=True, space_removed=True)  # set_id=10, it means de-distance baseline
     # Baseline parameter set (alter number of walks and dimensions)
     # Alter dimensions to start with, 64, 128
     parameter_set = {'walks_per_node': 100,
@@ -54,7 +54,7 @@ if __name__ == '__main__':
                       'num_negative_samples': 5}
     # set_id = 0
     bg_set = [(True, False), (True, True), (False, False), (False, True)]  # (True, False), (False, False) are done
-    bg, set_id = bg_set[1], 1
+    bg, set_id = bg_set[0], 9  # set_id=9, it means de-distance baseline
     basic, group_node = bg
     para = parameter_set.copy()
     para['basic'] = basic
@@ -103,7 +103,13 @@ if __name__ == '__main__':
     df_res, df_resh = results_save(graph_embedding=ge, city_graph=cdtg)
 
     df_res.to_parquet(os.path.join(ROOT_dir, f'dbs/embeddings/baseline_set{set_id}_individual.parquet'), index=False)
-    df_res.to_parquet(os.path.join(ROOT_dir, f'dbs/embeddings/baseline_set{set_id}_hexagon.parquet'), index=False)
+    df_resh.to_parquet(os.path.join(ROOT_dir, f'dbs/embeddings/baseline_set{set_id}_hexagon.parquet'), index=False)
+
+    # Save loss time history
+    result_list = [item for sublist in ge.loss_tracker.values() for item in sublist]
+    df_loss = pd.DataFrame(result_list, columns=['iter', 'loss'])
+    df_loss.loc[:, 'step'] = df_loss.index
+    df_loss.to_parquet(os.path.join(ROOT_dir, f'dbs/embeddings/baseline_set{set_id}_loss.parquet'), index=False)
 
     # Clear memory
     # End of current training run: clear GPU memory

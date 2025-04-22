@@ -43,34 +43,40 @@ class CityDataToGraph:
         self.h3_mapping = None
         self.poi_mapping = None
 
-    def edges_processing(self):
+    def edges_processing(self, basic=True, space_removed=False):
         self.data = self.data[self.data.device_aid.isin(self.df_ib['device_aid'].unique())]
         print(f"No of edges {len(self.data)} from {self.data['device_aid'].nunique()} unique devices")
 
         self.individuals_mapping = dict(zip(self.data['device_aid'].unique(), range(0, self.data['device_aid'].nunique())))
         self.h3_mapping = dict(zip(self.data['h3_id'].unique(), range(0, self.data['h3_id'].nunique())))
 
-        # Hexagon-Function edges
-        df_stops_h = self.data[['h3_id', 'kind']].explode('kind')
-        df_stops_h.dropna(inplace=True)
-        df_stops_h = df_stops_h.groupby(['h3_id', 'kind']).size().rename('count').reset_index()
+        if space_removed:
+            self.data.loc[:, 'to_explode'] = self.data.loc[:, 'freq_wi'].apply(lambda x: [1]*x)
+            self.data = self.data.explode('to_explode')
+            self.data.drop(columns=['to_explode', 'freq_wi', 'freq_w'], inplace=True)
+        if not basic:
+            # Hexagon-Function edges
+            df_stops_h = self.data[['h3_id', 'kind']].explode('kind')
+            df_stops_h.dropna(inplace=True)
+            df_stops_h = df_stops_h.groupby(['h3_id', 'kind']).size().rename('count').reset_index()
 
-        def count_norm(data):
-            data['count_n'] = np.ceil(data['count'] / data['count'].sum() * 10)
-            return data
-        self.data_hf = df_stops_h.groupby('h3_id').\
-            apply(lambda data: count_norm(data), include_groups=False).\
-            reset_index()
-        self.data_hf['count_n'] = self.data_hf['count_n'].astype(int)
-        self.data_hf['count_r'] = self.data_hf['count_n'].apply(lambda x: [1] * x)
-        self.data_hf = self.data_hf[['h3_id', 'kind', 'count_r']].explode('count_r').drop(columns=['count_r'])
-        self.poi_mapping = dict(zip(self.data_hf['kind'].unique(), range(0, self.data_hf['kind'].nunique())))
+            def count_norm(data):
+                data['count_n'] = np.ceil(data['count'] / data['count'].sum() * 10)
+                return data
+            self.data_hf = df_stops_h.groupby('h3_id').\
+                apply(lambda data: count_norm(data), include_groups=False).\
+                reset_index()
+            self.data_hf['count_n'] = self.data_hf['count_n'].astype(int)
+            self.data_hf['count_r'] = self.data_hf['count_n'].apply(lambda x: [1] * x)
+            self.data_hf = self.data_hf[['h3_id', 'kind', 'count_r']].explode('count_r').drop(columns=['count_r'])
+            self.poi_mapping = dict(zip(self.data_hf['kind'].unique(), range(0, self.data_hf['kind'].nunique())))
+
+            self.data_hf.loc[:, 'src_id'] = self.data_hf.loc[:, 'h3_id'].map(self.h3_mapping)
+            self.data_hf.loc[:, 'dst_id'] = self.data_hf.loc[:, 'kind'].map(self.poi_mapping)
 
         # Convert nodes into node indexes
         self.data.loc[:, 'src_id'] = self.data.loc[:, 'device_aid'].map(self.individuals_mapping)
         self.data.loc[:, 'dst_id'] = self.data.loc[:, 'h3_id'].map(self.h3_mapping)
-        self.data_hf.loc[:, 'src_id'] = self.data_hf.loc[:, 'h3_id'].map(self.h3_mapping)
-        self.data_hf.loc[:, 'dst_id'] = self.data_hf.loc[:, 'kind'].map(self.poi_mapping)
         self.df_ib.loc[:, 'dst_id'] = self.df_ib.loc[:, 'device_aid'].map(self.individuals_mapping)
         self.df_ib.loc[:, 'src_id'] = self.df_ib.loc[:, 'group']
 
@@ -142,6 +148,7 @@ class Graph2EmbeddingSpace:
         self.model = None
         self.optimizer = None
         self.loader = None
+        self.loss_tracker = dict()
 
     def model_init(self, embedding_dim=64, walk_length=20, context_size=7,
                    walks_per_node=200, num_negative_samples=5,
@@ -165,7 +172,7 @@ class Graph2EmbeddingSpace:
         total_loss = 0
         best_loss = float('inf')  # Track the best loss
         epochs_without_improvement = 0  # Counter for early stopping
-
+        self.loss_tracker[epoch] = []
         for i, (pos_rw, neg_rw) in enumerate(self.loader):
             self.optimizer.zero_grad()
             loss = self.model.loss(pos_rw.to(self.device), neg_rw.to(self.device))
@@ -177,6 +184,7 @@ class Graph2EmbeddingSpace:
                 avg_loss = total_loss / log_steps
                 print(f'Epoch: {epoch}, Step: {i + 1:03d}/{len(self.loader)}, '
                       f'Loss: {avg_loss:.4f}')
+                self.loss_tracker[epoch].append((log_steps, avg_loss))
                 total_loss = 0
 
                 # Early stopping check
