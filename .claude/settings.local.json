@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find:*)",
+      "Bash(python:*)",
+      "Bash(python3:*)",
+      "Bash(wc:*)",
+      "Bash(ls:*)",
+      "Bash(gh repo clone:*)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(where:*)",
+      "Bash(dir /b D:mobi-seg-netdbsembeddingsplace_centric*.parquet D:mobi-seg-netdbscitiesstockholm_poi_categories.csv)",
+      "Bash(git -C \"D:/mobi-seg-net\" checkout -- src/visualization/place_embedding_viz.py)"
+    ]
+  }
+}
