@@ -1,4 +1,4 @@
-# Mobility network embeddings reveal socio-spatial segregation
+# Mobility Network Embeddings for Multi-Dimensional Urban Segregation Analysis
 This repository explores how spatial embeddings derived from mobility networks reveal socio-spatial segregation, 
 and investigates how the built environment influences those patterns. 
 It is part of the [parent project](https://github.com/MobiSegInsights).
